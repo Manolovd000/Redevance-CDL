@@ -144,6 +144,24 @@ button, input, select { font: inherit; color: inherit; }
 .pied { margin-top: auto; padding: 16px 28px 22px; border-top: 1px solid var(--filet); font-size: 12.5px; color: var(--encre-2); }
 .pied p { margin: 0 0 4px; }
 
+/* Passages en bordure */
+.mesures .retenu dt { color: var(--encre); font-weight: 700; }
+.mesures .retenu dd { font-size: 17px; }
+.bordure { margin-top: 14px; padding: 12px 14px; background: #FFF9E3; border-left: 3px solid var(--repere); }
+.case { display: flex; gap: 9px; align-items: flex-start; cursor: pointer; }
+.case input { width: 17px; height: 17px; margin: 2px 0 0; flex: none; accent-color: var(--encre); cursor: pointer; }
+.case-principale { font-weight: 600; }
+.case-principale strong { white-space: nowrap; }
+.bordure .note select { height: 26px; padding: 0 4px; border: 1px solid #8FA3B0; border-radius: 3px; background: var(--blanc); font-size: 13px; }
+.bordure-liste { margin: 10px 0 0; padding: 0; list-style: none; }
+.bordure-liste li { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-top: 1px solid #EADFB8; font-size: 14px; }
+.bordure-liste .case { flex: 1; align-items: center; }
+.bordure-liste .site { font-family: var(--serif); font-style: italic; color: var(--mer); }
+.bordure-liste .long { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bordure-liste li.exclu .long { text-decoration: line-through; color: var(--encre-2); }
+.legende .l-bord { width: 18px; height: 0; border-top: 3px dashed var(--repere); }
+.legende .l-exclu { width: 18px; height: 6px; background: var(--repere); box-shadow: 0 0 0 1.5px var(--encre); }
+
 /* Édition du tracé */
 .edition { margin-top: 16px; padding: 14px 16px 16px; background: var(--blanc); border: 1px solid var(--filet); border-left: 3px solid var(--repere); }
 .edition-titre { margin: 0 0 10px; font-weight: 700; }

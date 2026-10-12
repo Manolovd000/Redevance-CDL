@@ -11,7 +11,7 @@
      * Les navigateurs des visiteurs rechargent alors tous les fichiers au lieu de garder
      * d'anciennes versions en mémoire.
      */
-    window.CDL_VERSION = '2';
+    window.CDL_VERSION = '3';
 
     /* Ajoute le numéro de version à l'adresse d'un fichier : « js/app.js » -> « js/app.js?v=1 ». */
     window.CDL_V = function (url) {
@@ -68,9 +68,25 @@
         <dl class="mesures">
           <div><dt>Longueur totale</dt><dd id="trace-total"></dd></div>
           <div class="fort"><dt>Sur les terrains du Conservatoire</dt><dd id="trace-cdl"></dd></div>
+          <div id="ligne-exclu" hidden><dt>En bordure, non compté</dt><dd id="trace-exclu"></dd></div>
+          <div id="ligne-retenu" class="retenu" hidden><dt>Linéaire retenu pour le calcul</dt><dd id="trace-retenu"></dd></div>
         </dl>
         <p id="trace-vide" class="alerte" hidden>Ce tracé ne traverse aucun terrain du Conservatoire : la part « linéaire » est nulle.</p>
         <ul id="trace-sites" class="sites-traverses"></ul>
+
+        <div id="bordure" class="bordure" hidden>
+          <label class="case case-principale">
+            <input id="bordure-toutes" type="checkbox">
+            <span>Ne pas compter le linéaire en bordure des terrains <strong id="bordure-total"></strong></span>
+          </label>
+          <p class="note">
+            Portions du tracé situées sur les terrains mais à moins de
+            <select id="bordure-seuil" aria-label="Distance à la limite des terrains"></select>
+            de leur limite. Vérifier sur la carte s'il y a une réelle emprise sur les terrains, puis cocher celles à ne pas compter.
+          </p>
+          <ul id="bordure-liste" class="bordure-liste"></ul>
+        </div>
+        <p id="bordure-aucune" class="note" hidden></p>
         <p id="trace-modifie" class="note" hidden></p>
         <div id="trace-actions" class="actions">
           <button id="btn-params" class="bouton principal" type="button">Saisir les paramètres</button>

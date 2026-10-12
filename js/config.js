@@ -80,6 +80,12 @@ window.CDL_CONFIG = {
     { jours: 7, facteur: 1.7 }
   ],
 
+  /*
+   * Passages en bordure des terrains : portions du tracé situées sur les terrains mais à moins
+   * de « seuil » mètres de leur limite. L'agent vérifie sur la carte et peut les exclure du linéaire.
+   */
+  bordure: { seuils: [10, 15, 25, 50], seuilParDefaut: 15, longueurMin: 30 },
+
   /* Valeurs proposées à l'ouverture de la fenêtre de paramètres. */
   valeursParDefaut: { jours: 1, participants: 0, emprise: 0, vehicules: 0 },
 
@@ -124,6 +130,7 @@ window.CDL_CONFIG = {
     siteFond: 'rgba(46, 134, 222, 0.30)',
     siteTrait: '#1B5FAE',
     siteChoisi: '#F2B705',
+    bordure: '#F2B705',
     trace: '#10283A',
     traceCdl: '#E2431E'
   },

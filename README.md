@@ -10,6 +10,7 @@ Site web statique (première ébauche) pour estimer la redevance d'un trail dont
 - Mesure automatique du linéaire du tracé situé à l'intérieur des terrains, avec le détail par site.
 - Modification du tracé à la main : couper un tronçon (deux clics sur le tracé), ajouter un tronçon (clics sur la carte, accroche automatique au tracé et à ses extrémités), annuler la dernière modification ou revenir au tracé importé. Longueurs et redevance sont recalculées à chaque modification.
 - Téléchargement du tracé, modifié ou non, au format GPX.
+- Passages en bordure des terrains : le site repère les portions du tracé situées sur les terrains mais à moins de 15 m de leur limite (distance réglable : 10, 15, 25 ou 50 m ; réglages dans `bordure` de `js/config.js`). Après vérification sur la carte, chaque passage peut être coché pour ne pas être compté dans le linéaire, ou tous d'un coup avec la case générale. Les passages cochés sont surlignés en jaune sur la carte et sur la fiche. Une limite commune à deux sites du Conservatoire n'est pas considérée comme une bordure.
 - Fenêtre de paramètres : nom du trail, nombre de jours, participants, linéaire, emprise au sol, véhicules.
 - Calcul de la redevance et affichage du détail par poste.
 - Téléchargement d'une fiche A4 en image (PNG) ou en PDF : logo, carte du tracé et des terrains, détail du calcul, montant final.

@@ -120,6 +120,11 @@
       etat.trace.segments.forEach(function (s) { ligne(s, 'rgba(255,255,255,0.9)', 5.5); });
       etat.trace.segments.forEach(function (s) { ligne(s, coul.trace, 2.6); });
       etat.trace.croisement.tronconsCdl.forEach(function (s) { ligne(s, coul.traceCdl, 4.2); });
+      (etat.trace.bordures || []).forEach(function (b) {
+        if (!etat.trace.exclus || !etat.trace.exclus[b.id]) return;
+        ligne(b.points, ENCRE, 7.5);
+        ligne(b.points, coul.bordure, 4.5);
+      });
 
       // Départ et arrivée
       var premier = etat.trace.segments[0], dernier = etat.trace.segments[etat.trace.segments.length - 1];
@@ -287,21 +292,34 @@
       ctx.strokeStyle = ENCRE; ctx.lineWidth = 1; ctx.strokeRect(x0 + 0.5, y + 0.5, carteL - 1, carteH - 1);
       y += carteH;
 
-      // Légende
+      // Légende (passe à la ligne si nécessaire)
       y += 20;
-      var lx = x0;
-      ctx.fillStyle = cfg.couleurs.siteFond; ctx.fillRect(lx, y - 10, 20, 12);
-      ctx.strokeStyle = cfg.couleurs.siteTrait; ctx.lineWidth = 1.2; ctx.strokeRect(lx, y - 10, 20, 12);
-      txt('Terrains du Conservatoire', lx + 27, y, '400 12px ' + SANS); lx += 27 + ctx.measureText('Terrains du Conservatoire').width + 22;
-      filet(y - 4, lx, lx + 22, cfg.couleurs.traceCdl, 4);
-      txt('Tracé sur les terrains', lx + 29, y, '400 12px ' + SANS); lx += 29 + ctx.measureText('Tracé sur les terrains').width + 22;
-      filet(y - 4, lx, lx + 22, cfg.couleurs.trace, 2.6);
-      txt('Tracé hors terrains', lx + 29, y, '400 12px ' + SANS); lx += 29 + ctx.measureText('Tracé hors terrains').width + 22;
-      ctx.beginPath(); ctx.arc(lx + 5, y - 4, 4.5, 0, 2 * Math.PI); ctx.fillStyle = '#FFFFFF'; ctx.fill();
-      ctx.strokeStyle = ENCRE; ctx.lineWidth = 1.6; ctx.stroke();
-      txt('Départ', lx + 15, y, '400 12px ' + SANS); lx += 15 + ctx.measureText('Départ').width + 16;
-      ctx.beginPath(); ctx.arc(lx + 5, y - 4, 5, 0, 2 * Math.PI); ctx.fillStyle = ENCRE; ctx.fill();
-      txt('Arrivée', lx + 15, y, '400 12px ' + SANS);
+      var lx = x0, police = '400 12px ' + SANS;
+      function element(largeurSymbole, dessiner, libelle) {
+        ctx.font = police;
+        var l = largeurSymbole + 7 + ctx.measureText(libelle).width;
+        if (lx > x0 && lx + l > x1) { lx = x0; y += 19; }
+        dessiner(lx);
+        txt(libelle, lx + largeurSymbole + 7, y, police);
+        lx += l + 20;
+      }
+      element(20, function (x) {
+        ctx.fillStyle = cfg.couleurs.siteFond; ctx.fillRect(x, y - 10, 20, 12);
+        ctx.strokeStyle = cfg.couleurs.siteTrait; ctx.lineWidth = 1.2; ctx.strokeRect(x, y - 10, 20, 12);
+      }, 'Terrains du Conservatoire');
+      element(22, function (x) { filet(y - 4, x, x + 22, cfg.couleurs.traceCdl, 4); }, 'Tracé sur les terrains');
+      element(22, function (x) { filet(y - 4, x, x + 22, cfg.couleurs.trace, 2.6); }, 'Tracé hors terrains');
+      var exclusions = (etat.trace.bordures || []).filter(function (b) { return etat.trace.exclus && etat.trace.exclus[b.id]; });
+      if (exclusions.length) {
+        element(22, function (x) { filet(y - 4, x, x + 22, ENCRE, 7); filet(y - 4, x + 1.5, x + 20.5, cfg.couleurs.bordure, 4); }, 'Bordure non comptée');
+      }
+      element(10, function (x) {
+        ctx.beginPath(); ctx.arc(x + 5, y - 4, 4.5, 0, 2 * Math.PI); ctx.fillStyle = '#FFFFFF'; ctx.fill();
+        ctx.strokeStyle = ENCRE; ctx.lineWidth = 1.6; ctx.stroke();
+      }, 'Départ');
+      element(10, function (x) {
+        ctx.beginPath(); ctx.arc(x + 5, y - 4, 5, 0, 2 * Math.PI); ctx.fillStyle = ENCRE; ctx.fill();
+      }, 'Arrivée');
 
       // Bandeau du montant
       y += 18;
@@ -328,6 +346,8 @@
       }
       mesure('Longueur totale', R.distance(cro.longueurTotale));
       mesure('Sur les terrains du Conservatoire', R.nombre(cro.longueurCdl) + ' m', true);
+      var exclu = exclusions.reduce(function (s, b) { return s + b.longueur; }, 0);
+      if (exclu > 0) mesure('En bordure, non compté', '− ' + R.nombre(exclu) + ' m');
       if (etat.params.lineaire !== Math.round(cro.longueurCdl)) {
         mesure('Linéaire retenu pour le calcul', R.nombre(etat.params.lineaire) + ' m');
       }
@@ -380,17 +400,16 @@
       txt('Redevance proposée', colD, yd, '700 13.5px ' + SANS);
       txt(R.euros(res.total), cM, yd, '700 13.5px ' + SANS, ENCRE, 'right');
 
-      // Mode de calcul
-      y = Math.max(yg, yd) + 34;
-      y = Math.max(y, yHaut + 250);
+      // Mode de calcul (remonte si la place manque au-dessus du pied de page)
+      var excluTxt = exclu > 0 ? ', hors passages en bordure des terrains (moins de ' + (etat.seuilBordure || '') + '\u00A0m de la limite) vérifiés sans emprise réelle' : '';
+      var explication = 'Mode de calcul : redevance = facteur de durée × (part participants + part linéaire + part emprise + part véhicules), ' +
+        'chaque part étant calculée par tranches (barème progressif). Le linéaire est la longueur du tracé GPX située sur les terrains du Conservatoire' + excluTxt + '.';
       ctx.font = '400 11.5px ' + SANS;
-      var fj = cfg.facteurJours, dernier = fj[fj.length - 1];
-      var explication = 'Mode de calcul : redevance = facteur de durée × (part participants + part linéaire + part emprise + part véhicules). ' +
-        'Barème progressif : chaque tranche de la quantité est facturée à son propre coût unitaire. ' +
-        'Facteur de durée : × ' + fj.map(function (f) { return R.decimal(f.facteur); }).join(', ') +
-        ' de 1 à ' + dernier.jours + ' jours, × ' + R.decimal(dernier.facteur) + ' au-delà. ' +
-        'Le linéaire est la longueur du tracé située à l\'intérieur des terrains du Conservatoire, mesurée sur le fichier GPX fourni.';
-      couper(ctx, explication, x1 - x0).forEach(function (l) { txt(l, x0, y, '400 11.5px ' + SANS, ENCRE2); y += 15; });
+      var lignesExp = couper(ctx, explication, x1 - x0);
+      var limite = HAUT - MARGE - 30 - 12 - (lignesExp.length - 1) * 15;
+      y = Math.min(Math.max(Math.max(yg, yd) + 30, yHaut + 250), limite);
+      y = Math.max(y, Math.max(yg, yd) + 20);
+      lignesExp.forEach(function (l) { txt(l, x0, y, '400 11.5px ' + SANS, ENCRE2); y += 15; });
 
       // Pied de page
       var yp = HAUT - MARGE;

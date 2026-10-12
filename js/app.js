@@ -40,7 +40,9 @@
     var d = L.DomUtil.create('div', 'legende');
     d.innerHTML = '<div><i class="l-site"></i>Terrains du Conservatoire</div>' +
       '<div class="l-si-trace" hidden><i class="l-cdl"></i>Tracé sur les terrains</div>' +
-      '<div class="l-si-trace" hidden><i class="l-trace"></i>Tracé hors terrains</div>';
+      '<div class="l-si-trace" hidden><i class="l-trace"></i>Tracé hors terrains</div>' +
+      '<div class="l-si-bord" hidden><i class="l-bord"></i>Passage en bordure, à vérifier</div>' +
+      '<div class="l-si-exclu" hidden><i class="l-exclu"></i>Bordure non comptée</div>';
     return d;
   };
   legende.addTo(carte);
@@ -49,6 +51,7 @@
   carte.fitBounds(versBounds(cfg.territoires[0].bbox));
 
   var coucheSites = null, coucheChoix = L.layerGroup().addTo(carte), coucheTrace = L.layerGroup().addTo(carte);
+  var coucheBordure = L.layerGroup().addTo(carte);
 
   function bulleSite(f) {
     var p = f.properties, d = document.createElement('div');
@@ -189,13 +192,14 @@
     if (ed.actif) fermerEdition();
     ed.historique = [];
     etat.trace = { nom: nom, segments: gpx.segments, croisement: croisement, modifications: 0 };
+    calculerBordures();
     etat.resultat = null;
     var prec = etat.params || {};
     etat.params = {
       nom: nom,
       jours: prec.jours || cfg.valeursParDefaut.jours,
       participants: prec.participants !== undefined ? prec.participants : cfg.valeursParDefaut.participants,
-      lineaire: Math.round(croisement.longueurCdl),
+      lineaire: lineaireRetenu(),
       emprise: prec.emprise !== undefined ? prec.emprise : cfg.valeursParDefaut.emprise,
       vehicules: prec.vehicules !== undefined ? prec.vehicules : cfg.valeursParDefaut.vehicules
     };
@@ -212,7 +216,7 @@
   function dessinerTrace(cadrer) {
     coucheTrace.clearLayers();
     document.querySelectorAll('.l-si-trace').forEach(function (el) { el.hidden = !etat.trace; });
-    if (!etat.trace) return;
+    if (!etat.trace) { dessinerBordures(); return; }
     var t = etat.trace, c = cfg.couleurs;
     t.segments.forEach(function (s) { L.polyline(latlngs(s), { color: '#FFFFFF', weight: 7, opacity: 0.9, interactive: false }).addTo(coucheTrace); });
     t.segments.forEach(function (s) { L.polyline(latlngs(s), { color: c.trace, weight: 3, interactive: false }).addTo(coucheTrace); });
@@ -222,6 +226,117 @@
     L.circleMarker([fin[1], fin[0]], { radius: 6, color: '#FFFFFF', weight: 2, fillColor: c.trace, fillOpacity: 1 }).bindTooltip('Arrivée').addTo(coucheTrace);
     L.circleMarker([premier[1], premier[0]], { radius: 6, color: c.trace, weight: 2.5, fillColor: '#FFFFFF', fillOpacity: 1 }).bindTooltip('Départ').addTo(coucheTrace);
     if (cadrer !== false) carte.fitBounds(versBounds(t.croisement.bbox), { padding: [50, 50] });
+    dessinerBordures();
+  }
+
+  /* -------- Passages en bordure des terrains */
+  etat.seuilBordure = cfg.bordure.seuilParDefaut;
+  var selSeuil = $('bordure-seuil'); // déplacé entre deux emplacements selon le cas
+
+  function calculerBordures() {
+    var t = etat.trace;
+    t.bordures = geo.bordures(t.croisement.tronconsCdl, etat.index, etat.seuilBordure, cfg.bordure.longueurMin);
+    t.exclus = {};
+  }
+  function longueurExclue() {
+    var t = etat.trace;
+    return (t.bordures || []).reduce(function (s, b) { return s + (t.exclus[b.id] ? b.longueur : 0); }, 0);
+  }
+  function lineaireRetenu() {
+    return Math.round(Math.max(0, etat.trace.croisement.longueurCdl - longueurExclue()));
+  }
+  function majLineaire() {
+    etat.params.lineaire = lineaireRetenu();
+    if (etat.resultat) etat.resultat = R.calculer(etat.params, cfg.bareme, cfg.facteurJours);
+    afficherTrace();
+    afficherRedevance();
+    dessinerBordures();
+  }
+
+  function dessinerBordures() {
+    coucheBordure.clearLayers();
+    var t = etat.trace, liste = t ? t.bordures || [] : [];
+    var nbExclus = liste.filter(function (b) { return t.exclus[b.id]; }).length;
+    document.querySelectorAll('.l-si-bord').forEach(function (el) { el.hidden = liste.length === nbExclus; });
+    document.querySelectorAll('.l-si-exclu').forEach(function (el) { el.hidden = !nbExclus; });
+    liste.forEach(function (b) {
+      var ll = latlngs(b.points);
+      if (t.exclus[b.id]) {
+        L.polyline(ll, { color: '#10283A', weight: 11, opacity: 0.9, interactive: false }).addTo(coucheBordure);
+        L.polyline(ll, { color: cfg.couleurs.bordure, weight: 7, interactive: false }).addTo(coucheBordure);
+      } else {
+        L.polyline(ll, { color: cfg.couleurs.bordure, weight: 3, dashArray: '6 7', interactive: false }).addTo(coucheBordure);
+      }
+    });
+  }
+
+  (function () {
+    var sel = selSeuil;
+    cfg.bordure.seuils.forEach(function (s) {
+      var o = document.createElement('option'); o.value = s; o.textContent = s + ' m';
+      if (s === cfg.bordure.seuilParDefaut) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', function () {
+      etat.seuilBordure = Number(sel.value);
+      if (!etat.trace) return;
+      calculerBordures();
+      majLineaire();
+    });
+    $('bordure-toutes').addEventListener('change', function (e) {
+      etat.trace.bordures.forEach(function (b) { if (e.target.checked) etat.trace.exclus[b.id] = true; else delete etat.trace.exclus[b.id]; });
+      majLineaire();
+    });
+    $('bordure-liste').addEventListener('change', function (e) {
+      var id = Number(e.target.getAttribute('data-id'));
+      if (!id) return;
+      if (e.target.checked) etat.trace.exclus[id] = true; else delete etat.trace.exclus[id];
+      majLineaire();
+    });
+    $('bordure-liste').addEventListener('click', function (e) {
+      var id = Number(e.target.getAttribute('data-voir'));
+      if (!id) return;
+      var b = etat.trace.bordures.filter(function (x) { return x.id === id; })[0];
+      if (b) carte.fitBounds(L.latLngBounds(latlngs(b.points)), { padding: [80, 80], maxZoom: 17 });
+    });
+  })();
+
+  function afficherBordures() {
+    var t = etat.trace, liste = t.bordures || [], ul = $('bordure-liste');
+    $('bordure').hidden = !liste.length;
+    var aucune = $('bordure-aucune');
+    aucune.hidden = liste.length > 0 || !t.croisement.sites.length;
+    aucune.textContent = 'Aucun passage en bordure des terrains (à moins de ' + etat.seuilBordure + ' m de leur limite). ';
+    if (!liste.length) {
+      // permet de changer la distance même quand rien n'est détecté
+      if (!aucune.hidden) {
+        aucune.appendChild(document.createTextNode('Distance : ')); aucune.appendChild(selSeuil);
+      }
+      return;
+    }
+    var note = document.querySelector('#bordure .note');
+    if (selSeuil.parentNode !== note) note.insertBefore(selSeuil, note.childNodes[1]);
+    var total = liste.reduce(function (s, b) { return s + b.longueur; }, 0);
+    var nbExclus = liste.filter(function (b) { return t.exclus[b.id]; }).length;
+    var toutes = $('bordure-toutes');
+    toutes.checked = nbExclus === liste.length;
+    toutes.indeterminate = nbExclus > 0 && nbExclus < liste.length;
+    $('bordure-total').textContent = '(' + R.nombre(total) + ' m, ' + liste.length + ' passage' + (liste.length > 1 ? 's' : '') + ')';
+    ul.textContent = '';
+    liste.forEach(function (b, i) {
+      var li = document.createElement('li'), lab = document.createElement('label'), cb = document.createElement('input');
+      var txtSpan = document.createElement('span'), site = document.createElement('span'), lg = document.createElement('span'), voir = document.createElement('button');
+      if (t.exclus[b.id]) li.className = 'exclu';
+      lab.className = 'case';
+      cb.type = 'checkbox'; cb.checked = !!t.exclus[b.id]; cb.setAttribute('data-id', b.id);
+      cb.setAttribute('aria-label', 'Ne pas compter le passage ' + (i + 1));
+      txtSpan.appendChild(document.createTextNode('Passage ' + (i + 1) + (b.site ? ', ' : '')));
+      site.className = 'site'; site.textContent = b.site; txtSpan.appendChild(site);
+      lab.appendChild(cb); lab.appendChild(txtSpan);
+      lg.className = 'long'; lg.textContent = R.nombre(b.longueur) + ' m';
+      voir.type = 'button'; voir.className = 'lien petit'; voir.textContent = 'Voir'; voir.setAttribute('data-voir', b.id);
+      li.appendChild(lab); li.appendChild(lg); li.appendChild(voir); ul.appendChild(li);
+    });
   }
 
   function afficherTrace() {
@@ -233,6 +348,11 @@
     $('trace-total').textContent = R.distance(c.longueurTotale);
     $('trace-cdl').textContent = R.nombre(c.longueurCdl) + ' m';
     $('trace-vide').hidden = c.sites.length > 0;
+    var exclu = longueurExclue();
+    $('ligne-exclu').hidden = $('ligne-retenu').hidden = !(exclu > 0);
+    $('trace-exclu').textContent = '− ' + R.nombre(exclu) + ' m';
+    $('trace-retenu').textContent = R.nombre(lineaireRetenu()) + ' m';
+    afficherBordures();
     var nbModif = t.modifications || 0;
     $('trace-modifie').hidden = !nbModif;
     $('trace-modifie').textContent = nbModif ? 'Tracé modifié à la main (' + nbModif + ' modification' + (nbModif > 1 ? 's' : '') + ').' : '';
@@ -336,7 +456,8 @@
     etat.trace.segments = segments;
     etat.trace.croisement = geo.croiser(segments, etat.index);
     etat.trace.modifications = ed.historique.length;
-    etat.params.lineaire = Math.round(etat.trace.croisement.longueurCdl);
+    calculerBordures();
+    etat.params.lineaire = lineaireRetenu();
     if (etat.resultat) etat.resultat = R.calculer(etat.params, cfg.bareme, cfg.facteurJours);
     dessinerTrace(false);
     afficherTrace();
@@ -623,7 +744,7 @@
     });
     $('palier-jours').textContent = 'Facteur de durée : × ' + R.decimal(res.facteur);
     afficherBareme(res);
-    var mesure = etat.trace ? Math.round(etat.trace.croisement.longueurCdl) : null;
+    var mesure = etat.trace ? lineaireRetenu() : null;
     var reprendre = $('p-lineaire-reprendre');
     reprendre.hidden = mesure === null || p.lineaire === mesure;
     if (mesure !== null) reprendre.textContent = 'Reprendre la mesure du tracé (' + R.nombre(mesure) + ' m)';
@@ -642,7 +763,7 @@
 
   $('formulaire').addEventListener('input', apercu);
   $('p-lineaire-reprendre').addEventListener('click', function () {
-    $('p-lineaire').value = Math.round(etat.trace.croisement.longueurCdl); apercu();
+    $('p-lineaire').value = lineaireRetenu(); apercu();
   });
   $('f-annuler').addEventListener('click', fermerFenetre);
   $('formulaire').addEventListener('submit', function (e) {

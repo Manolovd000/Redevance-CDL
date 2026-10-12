@@ -223,6 +223,74 @@
     return { longueurTotale: total, longueurCdl: cdl, bbox: bb, sites: sites, tronconsCdl: troncons };
   }
 
+  /* ------------------------------------------------------------ Bordures */
+
+  /** Points régulièrement espacés (pas en mètres) le long d'une ligne, extrémités comprises. */
+  function densifier(ligne, pas) {
+    var out = [ligne[0]];
+    for (var i = 0; i < ligne.length - 1; i++) {
+      var a = ligne[i], b = ligne[i + 1], L = distance(a, b), n = Math.max(1, Math.ceil(L / pas));
+      for (var k = 1; k <= n; k++) out.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]);
+    }
+    return out;
+  }
+
+  /**
+   * Repère les portions du tracé situées sur les terrains mais à moins de « seuil » mètres
+   * de leur limite extérieure (chemin qui longe la limite, imprécision du GPS ou du périmètre).
+   * Une limite commune à deux sites du Conservatoire n'est pas une bordure : on teste si un
+   * point situé à « seuil » mètres, dans 8 directions, sort de tous les terrains.
+   * @returns {{id:number, longueur:number, points:number[][], site:string}[]}
+   */
+  function bordures(troncons, index, seuil, longueurMin, pas) {
+    pas = pas || 5;
+    var out = [], id = 0;
+    var dirs = [];
+    for (var a = 0; a < 8; a++) dirs.push([Math.cos(a * Math.PI / 4), Math.sin(a * Math.PI / 4)]);
+    troncons.forEach(function (tr) {
+      if (tr.length < 2) return;
+      var pts = densifier(tr, pas);
+      var bb = emprise([pts]), marge = seuil / 111320 * 2;
+      var cand = index.polys.filter(function (p) {
+        return !(p.bbox[0] > bb[2] + marge || p.bbox[2] < bb[0] - marge || p.bbox[1] > bb[3] + marge || p.bbox[3] < bb[1] - marge);
+      });
+      function surTerrain(x, y) {
+        for (var c = 0; c < cand.length; c++) if (dansPoly(x, y, cand[c])) return cand[c];
+        return null;
+      }
+      var proche = pts.map(function (p) {
+        var dLat = seuil / 111320, dLon = seuil / (111320 * Math.cos(p[1] * RAD));
+        for (var d = 0; d < dirs.length; d++) {
+          if (!surTerrain(p[0] + dirs[d][0] * dLon, p[1] + dirs[d][1] * dLat)) return true;
+        }
+        return false;
+      });
+      // comble les petites interruptions (≤ 2 échantillons) au sein d'une bordure
+      for (var i = 1; i < proche.length - 1; i++) {
+        if (!proche[i] && proche[i - 1]) {
+          var j = i; while (j < proche.length && !proche[j] && j - i < 3) j++;
+          if (j < proche.length && proche[j] && j - i <= 2) for (var k = i; k < j; k++) proche[k] = true;
+        }
+      }
+      var debut = -1;
+      for (var n = 0; n <= proche.length; n++) {
+        if (n < proche.length && proche[n]) { if (debut < 0) debut = n; continue; }
+        if (debut >= 0) {
+          var morceau = pts.slice(debut, n);
+          var L = 0;
+          for (var m = 0; m < morceau.length - 1; m++) L += distance(morceau[m], morceau[m + 1]);
+          if (L >= longueurMin) {
+            var milieu = morceau[Math.floor(morceau.length / 2)], poly = surTerrain(milieu[0], milieu[1]);
+            out.push({ id: ++id, longueur: L, points: morceau,
+              site: poly ? index.fc.features[poly.site].properties.nom : '' });
+          }
+          debut = -1;
+        }
+      }
+    });
+    return out;
+  }
+
   global.CDL = global.CDL || {};
-  global.CDL.geo = { distance: distance, lireGPX: lireGPX, indexerSites: indexerSites, croiser: croiser, emprise: emprise };
+  global.CDL.geo = { distance: distance, lireGPX: lireGPX, indexerSites: indexerSites, croiser: croiser, emprise: emprise, bordures: bordures };
 })(typeof window !== 'undefined' ? window : globalThis);
