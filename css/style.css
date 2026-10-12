@@ -144,6 +144,19 @@ button, input, select { font: inherit; color: inherit; }
 .pied { margin-top: auto; padding: 16px 28px 22px; border-top: 1px solid var(--filet); font-size: 12.5px; color: var(--encre-2); }
 .pied p { margin: 0 0 4px; }
 
+/* Édition du tracé */
+.edition { margin-top: 16px; padding: 14px 16px 16px; background: var(--blanc); border: 1px solid var(--filet); border-left: 3px solid var(--repere); }
+.edition-titre { margin: 0 0 10px; font-weight: 700; }
+.outils { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #8FA3B0; border-radius: 3px; overflow: hidden; }
+.outil { min-height: 38px; padding: 6px 8px; border: 0; background: var(--blanc); cursor: pointer; font-weight: 600; }
+.outil + .outil { border-left: 1px solid #8FA3B0; }
+.outil[aria-pressed="true"] { background: var(--encre); color: var(--blanc); }
+.edition-aide { margin: 10px 0 0; font-size: 14px; }
+.edition-aide:empty { display: none; }
+.edition-historique { padding-top: 12px; border-top: 1px solid var(--filet); }
+.edition > .bouton.principal { margin-top: 14px; width: 100%; }
+.en-edition.leaflet-container, .en-edition .leaflet-interactive { cursor: crosshair !important; }
+
 /* ------------------------------------------------------------------- Carte */
 .leaflet-container { font-family: var(--sans); font-size: 13px; }
 .leaflet-popup-content-wrapper { border-radius: 3px; }

@@ -5,8 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Redevance trail – terrains du Conservatoire du littoral</title>
   <meta name="description" content="Importer le tracé GPX d'un trail, mesurer le linéaire qui traverse les terrains du Conservatoire du littoral et estimer la redevance.">
-  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="css/style.css">
+  <script>
+    /*
+     * VERSION DU SITE : augmenter ce numéro de 1 à chaque mise à jour déposée sur GitHub.
+     * Les navigateurs des visiteurs rechargent alors tous les fichiers au lieu de garder
+     * d'anciennes versions en mémoire.
+     */
+    window.CDL_VERSION = '2';
+
+    /* Ajoute le numéro de version à l'adresse d'un fichier : « js/app.js » -> « js/app.js?v=1 ». */
+    window.CDL_V = function (url) {
+      return url + (url.indexOf('?') < 0 ? '?' : '&') + 'v=' + encodeURIComponent(window.CDL_VERSION);
+    };
+    /* Charge feuilles de style et scripts dans l'ordre, avec le numéro de version. */
+    window.CDL_CHARGER = function (fichiers) {
+      fichiers.forEach(function (f) {
+        document.write(/\.css$/.test(f)
+          ? '<link rel="stylesheet" href="' + window.CDL_V(f) + '">'
+          : '<script src="' + window.CDL_V(f) + '"><\/script>');
+      });
+    };
+  </script>
+  <script>CDL_CHARGER(['vendor/leaflet/leaflet.css', 'css/style.css']);</script>
 </head>
 <body>
 <div class="app">
@@ -51,10 +71,33 @@
         </dl>
         <p id="trace-vide" class="alerte" hidden>Ce tracé ne traverse aucun terrain du Conservatoire : la part « linéaire » est nulle.</p>
         <ul id="trace-sites" class="sites-traverses"></ul>
-        <div class="actions">
+        <p id="trace-modifie" class="note" hidden></p>
+        <div id="trace-actions" class="actions">
           <button id="btn-params" class="bouton principal" type="button">Saisir les paramètres</button>
-          <button id="btn-autre" class="bouton" type="button">Importer un autre GPX</button>
+          <button id="btn-editer" class="bouton" type="button">Modifier le tracé</button>
+          <button id="btn-gpx-export" class="bouton" type="button">Télécharger le GPX</button>
+          <button id="btn-autre" class="lien" type="button">Importer un autre GPX</button>
           <button id="btn-retirer" class="lien" type="button">Retirer le tracé</button>
+        </div>
+
+        <div id="edition" class="edition" hidden>
+          <p class="edition-titre">Modifier le tracé</p>
+          <div class="outils" role="group" aria-label="Outil de modification">
+            <button id="outil-couper" class="outil" type="button" aria-pressed="false">Couper un tronçon</button>
+            <button id="outil-ajouter" class="outil" type="button" aria-pressed="false">Ajouter un tronçon</button>
+          </div>
+          <p id="edition-aide" class="edition-aide" aria-live="polite"></p>
+          <div class="actions">
+            <button id="ed-supprimer" class="bouton principal" type="button" hidden>Supprimer ce tronçon</button>
+            <button id="ed-valider" class="bouton principal" type="button" hidden>Valider le tronçon</button>
+            <button id="ed-point" class="bouton" type="button" hidden>Effacer le dernier point</button>
+            <button id="ed-abandonner" class="lien" type="button" hidden>Abandonner</button>
+          </div>
+          <div class="actions edition-historique">
+            <button id="ed-defaire" class="bouton" type="button" disabled>Annuler la dernière modification</button>
+            <button id="ed-origine" class="lien" type="button" disabled>Revenir au tracé importé</button>
+          </div>
+          <button id="ed-terminer" class="bouton principal" type="button">Terminer la modification</button>
         </div>
       </div>
 
@@ -104,6 +147,7 @@
         <label class="champ">
           <span>Nombre de jours</span>
           <input id="p-jours" type="number" min="1" step="1" inputmode="numeric">
+          <small id="palier-jours"></small>
         </label>
 
         <label class="champ">
@@ -150,13 +194,17 @@
   </form>
 </dialog>
 
-<script src="vendor/leaflet/leaflet.js"></script>
-<script src="js/config.js"></script>
-<script src="js/redevance.js"></script>
-<script src="js/geo.js"></script>
-<script src="js/export.js"></script>
-<script src="img/logo-cdl.js"></script>
-<script src="exemples/trail-exemple-mayotte.js"></script>
-<script src="js/app.js"></script>
+<script>
+  CDL_CHARGER([
+    'vendor/leaflet/leaflet.js',
+    'js/config.js',
+    'js/redevance.js',
+    'js/geo.js',
+    'js/export.js',
+    'img/logo-cdl.js',
+    'exemples/trail-exemple-mayotte.js',
+    'js/app.js'
+  ]);
+</script>
 </body>
 </html>

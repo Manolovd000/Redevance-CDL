@@ -8,6 +8,8 @@ Site web statique (première ébauche) pour estimer la redevance d'un trail dont
 - Recherche d'un site par son nom, ou accès direct à un territoire.
 - Import d'un tracé GPX (bouton ou glisser-déposer). Le fichier reste dans le navigateur : rien n'est envoyé.
 - Mesure automatique du linéaire du tracé situé à l'intérieur des terrains, avec le détail par site.
+- Modification du tracé à la main : couper un tronçon (deux clics sur le tracé), ajouter un tronçon (clics sur la carte, accroche automatique au tracé et à ses extrémités), annuler la dernière modification ou revenir au tracé importé. Longueurs et redevance sont recalculées à chaque modification.
+- Téléchargement du tracé, modifié ou non, au format GPX.
 - Fenêtre de paramètres : nom du trail, nombre de jours, participants, linéaire, emprise au sol, véhicules.
 - Calcul de la redevance et affichage du détail par poste.
 - Téléchargement d'une fiche A4 en image (PNG) ou en PDF : logo, carte du tracé et des terrains, détail du calcul, montant final.
@@ -21,37 +23,47 @@ Site web statique (première ébauche) pour estimer la redevance d'un trail dont
 
 Le site fonctionne aussi hors ligne de GitHub : un double-clic sur `index.html` suffit pour l'essayer (une connexion internet reste nécessaire pour les fonds de carte IGN).
 
+## Mettre à jour le site sans gêner les visiteurs
+
+- Déposer tous les fichiers modifiés **en une seule fois** (*Add file* > *Upload files*, un seul *Commit changes*) : le site bascule d'un coup sur la nouvelle version.
+- À chaque mise à jour, **augmenter de 1 le numéro de version** en haut de `index.html` (`window.CDL_VERSION = '1'` devient `'2'`, etc.). Les navigateurs des visiteurs rechargent alors tous les fichiers au lieu de garder d'anciennes versions en mémoire.
+
 ## Formule de calcul
 
-Reprise du classeur `projet-redevance-MS_260626.xlsx` :
+Reprise du classeur `Simulation-redevance_MS_08.10.26.xlsx` :
 
 ```
-Redevance = Nb de jours × (part participants + part linéaire + part emprise + part véhicules)
+Redevance = facteur de durée × (part participants + part linéaire + part emprise + part véhicules)
 ```
 
-Chaque part vaut la quantité multipliée par le coût unitaire du palier atteint. Le coût du palier s'applique à toute la quantité (pas de calcul par tranches).
+Barème progressif : chaque tranche de la quantité est facturée à son propre coût unitaire. Exemple : 250 participants = 100 × 0,50 € + 150 × 0,75 € = 162,50 €.
 
-| Participants | €/participant/jour | | Linéaire | €/m/jour |
+| Participants | € par participant | | Linéaire | € par mètre |
 |---|---|---|---|---|
 | 0 à 100 | 0,50 | | 0 à 1 000 m | 0,05 |
 | 101 à 500 | 0,75 | | 1 001 à 3 000 m | 0,075 |
-| 501 à 999 | 1,00 | | 3 001 à 5 000 m | 0,10 |
-| 1 000 et plus | 2,00 | | plus de 5 000 m | 0,20 |
+| 501 à 1 000 | 1,00 | | 3 001 à 5 000 m | 0,10 |
+| au-delà de 1 000 | 3,00 | | au-delà de 5 000 m | 0,125 |
 
-| Emprise | €/m²/jour | | Véhicules | €/véhicule/jour |
+| Emprise | € par m² | | Véhicules | € par véhicule |
 |---|---|---|---|---|
-| 0 à 5 m² | 1,00 | | 1 | 50 |
-| 6 à 10 m² | 1,50 | | 2 | 75 |
-| 11 à 20 m² | 2,00 | | 3 | 100 |
-| plus de 20 m² | 4,00 | | 4 et plus | 200 |
+| 0 à 5 m² | 1,00 | | 1er véhicule | 50 |
+| 6 à 10 m² | 1,50 | | 2e véhicule | 75 |
+| 11 à 20 m² | 2,00 | | 3e véhicule | 100 |
+| au-delà de 20 m² | 4,00 | | à partir du 4e | 200 |
 
-Les quantités sont arrondies à l'unité (mètre, m², personne) avant le calcul. Le calcul du site a été comparé au classeur d'origine sur 60 cas, bornes de paliers comprises : résultats identiques.
+| Nombre de jours | 1 | 2 | 3 | 4 | 5 | 6 | 7 et plus |
+|---|---|---|---|---|---|---|---|
+| Facteur de durée | 1 | 1,2 | 1,3 | 1,4 | 1,5 | 1,6 | 1,7 |
+
+Les quantités sont arrondies à l'unité (mètre, m², personne) avant le calcul. Le calcul du site a été comparé au classeur sur 63 cas, bornes de tranches et durées de 1 à 10 jours comprises : résultats identiques.
 
 ## Modifier le barème ou les réglages
 
 Tout se règle dans `js/config.js` :
 
-- `bareme` : paliers (`min` = borne basse, `cout` = coût unitaire) ;
+- `bareme` : tranches (`max` = borne haute, `null` pour la dernière ; `cout` = coût unitaire) ;
+- `facteurJours` : facteur multiplicateur selon le nombre de jours ;
 - `versionBareme` : mention reprise en pied de fiche ;
 - `fonds` : fonds de carte IGN. Le fond « Carte IGN (SCAN 25) » passe par une clé (`cle`) à remplacer par celle de l'établissement ;
 - `valeursParDefaut`, `territoires`, `couleurs`.

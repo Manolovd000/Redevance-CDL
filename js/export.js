@@ -196,7 +196,8 @@
   function chargerLogo() {
     var cfg = global.CDL_CONFIG;
     if (!cfg.logo || !cfg.logo.fichier) return Promise.resolve(null);
-    return imageDepuis(cfg.logo.fichier).then(function (img) {
+    var fichier = global.CDL_V ? global.CDL_V(cfg.logo.fichier) : cfg.logo.fichier;
+    return imageDepuis(fichier).then(function (img) {
       return img || imageDepuis(global.CDL_LOGO_SECOURS);
     });
   }
@@ -277,7 +278,8 @@
       var titres = couper(ctx, nom, x1 - x0, 2);
       titres.forEach(function (l) { y += 34; txt(l, x0, y, 'italic 600 30px ' + SERIF, MER); });
       y += 20;
-      txt('Terrains du Conservatoire du littoral traversés par le tracé', x0, y, '400 13px ' + SANS, ENCRE);
+      txt('Terrains du Conservatoire du littoral traversés par le tracé' +
+        (etat.trace.modifications ? ' (tracé importé puis modifié à la main)' : ''), x0, y, '400 13px ' + SANS, ENCRE);
 
       // Carte
       y += 14;
@@ -350,30 +352,30 @@
         txt('et ' + (cro.sites.length - maxSites) + ' autre' + (cro.sites.length - maxSites > 1 ? 's' : ''), colG, yg, '400 12px ' + SANS, ENCRE2);
       }
 
-      // Détail du calcul
-      var cQ = colD + 196, cC = colD + 300, cM = x1;
+      // Détail du calcul (barème progressif : une ligne de détail des tranches sous chaque poste)
+      var cQ = colD + 230, cM = x1;
       txt('Détail du calcul', colD, y, '700 14px ' + SANS);
       txt('Quantité', cQ, y, '400 11.5px ' + SANS, ENCRE2, 'right');
-      txt('Coût unitaire', cC, y, '400 11.5px ' + SANS, ENCRE2, 'right');
       txt('Montant', cM, y, '400 11.5px ' + SANS, ENCRE2, 'right');
       filet(y + 8, colD, x1, ENCRE, 1);
       var yd = y + 27;
       ['participants', 'lineaire', 'emprise', 'vehicules'].forEach(function (cle) {
         var p = res.parts[cle];
         txt(p.titre, colD, yd, '600 12.5px ' + SANS);
-        txt(p.palier ? 'palier ' + p.palier.libelle : 'aucun', colD, yd + 14, '400 11px ' + SANS, ENCRE2);
         txt(R.nombre(p.quantite), cQ, yd, '400 12.5px ' + SANS, ENCRE, 'right');
-        txt(R.coutUnitaire(p.cout), cC, yd, '400 12.5px ' + SANS, ENCRE, 'right');
         txt(R.euros(p.montant), cM, yd, '400 12.5px ' + SANS, ENCRE, 'right');
-        filet(yd + 22, colD, x1);
-        yd += 38;
+        ctx.font = '400 11px ' + SANS;
+        var lignes = couper(ctx, R.detailTranches(p) || 'aucun', x1 - colD, 2);
+        lignes.forEach(function (l) { yd += 14; txt(l, colD, yd, '400 11px ' + SANS, ENCRE2); });
+        filet(yd + 8, colD, x1);
+        yd += 25;
       });
-      yd -= 4;
-      txt('Sous-total par jour', colD, yd, '400 12.5px ' + SANS);
-      txt(R.euros(res.sousTotalJour), cM, yd, '400 12.5px ' + SANS, ENCRE, 'right');
+      yd -= 1;
+      txt('Sous-total', colD, yd, '400 12.5px ' + SANS);
+      txt(R.euros(res.sousTotal), cM, yd, '400 12.5px ' + SANS, ENCRE, 'right');
       filet(yd + 9, colD, x1); yd += 26;
-      txt('Nombre de jours', colD, yd, '400 12.5px ' + SANS);
-      txt('× ' + res.jours, cM, yd, '400 12.5px ' + SANS, ENCRE, 'right');
+      txt('Facteur de durée (' + (res.jours > 1 ? res.jours + ' jours' : '1 jour') + ')', colD, yd, '400 12.5px ' + SANS);
+      txt('× ' + R.decimal(res.facteur), cM, yd, '400 12.5px ' + SANS, ENCRE, 'right');
       filet(yd + 9, colD, x1, ENCRE, 1); yd += 27;
       txt('Redevance proposée', colD, yd, '700 13.5px ' + SANS);
       txt(R.euros(res.total), cM, yd, '700 13.5px ' + SANS, ENCRE, 'right');
@@ -382,8 +384,11 @@
       y = Math.max(yg, yd) + 34;
       y = Math.max(y, yHaut + 250);
       ctx.font = '400 11.5px ' + SANS;
-      var explication = 'Mode de calcul : redevance = nombre de jours × (part participants + part linéaire + part emprise + part véhicules). ' +
-        'Chaque part est la quantité multipliée par le coût unitaire du palier atteint. ' +
+      var fj = cfg.facteurJours, dernier = fj[fj.length - 1];
+      var explication = 'Mode de calcul : redevance = facteur de durée × (part participants + part linéaire + part emprise + part véhicules). ' +
+        'Barème progressif : chaque tranche de la quantité est facturée à son propre coût unitaire. ' +
+        'Facteur de durée : × ' + fj.map(function (f) { return R.decimal(f.facteur); }).join(', ') +
+        ' de 1 à ' + dernier.jours + ' jours, × ' + R.decimal(dernier.facteur) + ' au-delà. ' +
         'Le linéaire est la longueur du tracé située à l\'intérieur des terrains du Conservatoire, mesurée sur le fichier GPX fourni.';
       couper(ctx, explication, x1 - x0).forEach(function (l) { txt(l, x0, y, '400 11.5px ' + SANS, ENCRE2); y += 15; });
 
@@ -477,5 +482,5 @@
   }
 
   global.CDL = global.CDL || {};
-  global.CDL.exporter = { composerFiche: composerFiche, png: png, pdf: pdf, nomFichier: nomFichier };
+  global.CDL.exporter = { composerFiche: composerFiche, png: png, pdf: pdf, nomFichier: nomFichier, telecharger: telecharger };
 })(window);

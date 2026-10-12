@@ -2,11 +2,12 @@
  * Paramétrage du site — c'est le seul fichier à modifier pour faire évoluer
  * le barème, les libellés ou les fonds de carte.
  *
- * BARÈME : repris du classeur « projet-redevance-MS_260626.xlsx ».
- *   Redevance = Nb de jours × (part participants + part linéaire + part emprise + part véhicules)
- *   Chaque part = quantité × coût unitaire du palier atteint.
- *   « min » est la borne basse du palier (comme dans le classeur) : le palier retenu
- *   est le dernier dont la borne basse est inférieure ou égale à la quantité.
+ * BARÈME : repris du classeur « Simulation-redevance_MS_08.10.26.xlsx ».
+ *   Redevance = facteur de durée × (part participants + part linéaire + part emprise + part véhicules)
+ *   Barème progressif : chaque part est calculée tranche par tranche, chaque tranche de la
+ *   quantité étant facturée à son propre coût unitaire.
+ *   « max » est la borne haute de la tranche (comme dans le classeur) ; la dernière tranche n'a pas
+ *   de borne haute (max: null).
  */
 window.CDL_CONFIG = {
 
@@ -20,50 +21,64 @@ window.CDL_CONFIG = {
     lien: 'https://www.conservatoire-du-littoral.fr/'
   },
 
-  versionBareme: 'projet de redevance manifestations sportives, version 260626',
+  versionBareme: 'simulation de redevance manifestations sportives du 08/10/2026',
 
   bareme: {
     participants: {
       titre: 'Participants',
       unite: 'participant',
       paliers: [
-        { min: 0,    cout: 0.5,  libelle: '0 à 100 personnes' },
-        { min: 101,  cout: 0.75, libelle: '101 à 500 personnes' },
-        { min: 501,  cout: 1,    libelle: '501 à 999 personnes' },
-        { min: 1000, cout: 2,    libelle: '1 000 personnes et plus' }
+        { max: 100,  cout: 0.5,  libelle: '0 à 100 personnes' },
+        { max: 500,  cout: 0.75, libelle: '101 à 500 personnes' },
+        { max: 1000, cout: 1,    libelle: '501 à 1 000 personnes' },
+        { max: null, cout: 3,    libelle: 'au-delà de 1 000 personnes' }
       ]
     },
     lineaire: {
       titre: 'Linéaire',
       unite: 'mètre',
       paliers: [
-        { min: 0,    cout: 0.05,  libelle: '0 à 1 000 m' },
-        { min: 1001, cout: 0.075, libelle: '1 001 à 3 000 m' },
-        { min: 3001, cout: 0.1,   libelle: '3 001 à 5 000 m' },
-        { min: 5001, cout: 0.2,   libelle: 'plus de 5 000 m' }
+        { max: 1000, cout: 0.05,  libelle: '0 à 1 000 m' },
+        { max: 3000, cout: 0.075, libelle: '1 001 à 3 000 m' },
+        { max: 5000, cout: 0.1,   libelle: '3 001 à 5 000 m' },
+        { max: null, cout: 0.125, libelle: 'au-delà de 5 000 m' }
       ]
     },
     emprise: {
       titre: 'Emprise',
       unite: 'm²',
       paliers: [
-        { min: 0,  cout: 1,   libelle: '0 à 5 m²' },
-        { min: 6,  cout: 1.5, libelle: '6 à 10 m²' },
-        { min: 11, cout: 2,   libelle: '11 à 20 m²' },
-        { min: 21, cout: 4,   libelle: 'plus de 20 m²' }
+        { max: 5,    cout: 1,   libelle: '0 à 5 m²' },
+        { max: 10,   cout: 1.5, libelle: '6 à 10 m²' },
+        { max: 20,   cout: 2,   libelle: '11 à 20 m²' },
+        { max: null, cout: 4,   libelle: 'au-delà de 20 m²' }
       ]
     },
     vehicules: {
       titre: 'Véhicules',
       unite: 'véhicule',
       paliers: [
-        { min: 1, cout: 50,  libelle: '1 véhicule' },
-        { min: 2, cout: 75,  libelle: '2 véhicules' },
-        { min: 3, cout: 100, libelle: '3 véhicules' },
-        { min: 4, cout: 200, libelle: '4 véhicules et plus' }
+        { max: 1,    cout: 50,  libelle: '1er véhicule' },
+        { max: 2,    cout: 75,  libelle: '2e véhicule' },
+        { max: 3,    cout: 100, libelle: '3e véhicule' },
+        { max: null, cout: 200, libelle: 'à partir du 4e véhicule' }
       ]
     }
   },
+
+  /*
+   * Facteur multiplicateur selon le nombre de jours (nombre de jours arrondi à l'entier supérieur).
+   * Au-delà du dernier nombre de jours de la liste, le dernier facteur s'applique.
+   */
+  facteurJours: [
+    { jours: 1, facteur: 1 },
+    { jours: 2, facteur: 1.2 },
+    { jours: 3, facteur: 1.3 },
+    { jours: 4, facteur: 1.4 },
+    { jours: 5, facteur: 1.5 },
+    { jours: 6, facteur: 1.6 },
+    { jours: 7, facteur: 1.7 }
+  ],
 
   /* Valeurs proposées à l'ouverture de la fenêtre de paramètres. */
   valeursParDefaut: { jours: 1, participants: 0, emprise: 0, vehicules: 0 },
